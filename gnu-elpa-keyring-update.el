@@ -4,7 +4,8 @@
 
 ;; Author: Stefan Monnier <monnier@iro.umontreal.ca>
 ;; Keywords: maint, tools
-;; Version: 2019.0
+;; Package-Type: multi
+;; Version: 2019.1
 
 ;; This program is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
