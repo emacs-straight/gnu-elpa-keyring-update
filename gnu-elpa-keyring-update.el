@@ -5,7 +5,7 @@
 ;; Author: Stefan Monnier <monnier@iro.umontreal.ca>
 ;; Keywords: maint, tools
 ;; Package-Type: multi
-;; Version: 2019.1
+;; Version: 2019.3
 
 ;; This program is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -32,22 +32,33 @@
 ;; installing packages.
 ;; 
 ;; If your keys are already too old, causing signature verification errors when
-;; installing packages, then in order to install this package you will
-;; ironically need to temporarily disable signature verification (see variable
-;; `package-check-signature') or to manually modify the expiration date of
-;; the old key, e.g. with:
+;; installing packages, then in order to install this package you can do the
+;; following:
 ;;
-;;   gpg --homedir ~/.emacs.d/elpa/gnupg --quick-set-expire 474F05837FBDEF9B 1y
+;; - Fetch the new key manually, e.g. with something like:
+;;
+;;       gpg --homedir ~/.emacs.d/elpa/gnupg --receive-keys 066DAFCB81E42C40
+;;
+;; - Modify the expiration date of the old key, e.g. with something like:
+;;
+;;       gpg --homedir ~/.emacs.d/elpa/gnupg \
+;;           --quick-set-expire 474F05837FBDEF9B 1y
+;;
+;; - temporarily disable signature verification (see variable
+;;   `package-check-signature').
 
 ;;; Code:
 
 ;;;###autoload
 (defvar gnu-elpa-keyring-update--keyring
-  (let ((kr (expand-file-name "etc/gnu-elpa-keyring.gpg"
+  ;; FIXME: Avoid using a `.gpg' extension, because it triggers a bug in
+  ;; tar-untar-buffer (which is used internally by `package.el' when installing
+  ;; the package).
+  (let ((kr (expand-file-name "etc/gnu-elpa.gpg-keyring"
                               (file-name-directory load-file-name))))
     (if (and load-file-name (file-readable-p kr))
         kr
-      "etc/gnu-elpa-keyring.gpg")))
+      "etc/gnu-elpa.gpg-keyring")))
 
 (defun gnu-elpa-keyring-update--keyring (&optional noerror)
   (if (and (file-name-absolute-p gnu-elpa-keyring-update--keyring)
@@ -62,7 +73,7 @@
       (if (file-readable-p kr)
           (setq gnu-elpa-keyring-update--keyring kr)
         (unless noerror
-          (error "Can't find the keyring.gpg file with the new keys"))))))
+          (error "Can't find the gpg-keyring file with the new keys"))))))
 
 ;;;###autoload
 (defun gnu-elpa-keyring-update ()
@@ -70,22 +81,24 @@
   (let ((gnupghome-dir (or (bound-and-true-p package-gnupghome-dir)
                            (expand-file-name "gnupg"
                                              package-user-dir))))
-    (if (file-directory-p gnupghome-dir)
-        (package-import-keyring (gnu-elpa-keyring-update--keyring))
-      (error "No keyring to update!"))))
+    (if (not (file-directory-p gnupghome-dir))
+        (error "No keyring to update!")
+      (package-import-keyring (gnu-elpa-keyring-update--keyring))
+      (write-region "" nil (expand-file-name "gnu-elpa.timestamp" gnupghome-dir)
+                    nil 'silent))))
 
 ;;;###autoload (eval-after-load 'package
 ;;;###autoload   `(and (bound-and-true-p package-user-dir)
 ;;;###autoload         (file-directory-p package-user-dir)
-;;;###autoload         (let ((okr (expand-file-name
-;;;###autoload                     "pubring.gpg"
-;;;###autoload                     (or (bound-and-true-p package-gnupghome-dir)
-;;;###autoload                         (expand-file-name "gnupg"
-;;;###autoload                                           package-user-dir))))
-;;;###autoload               (nkr gnu-elpa-keyring-update--keyring))
-;;;###autoload           (and (file-writable-p okr)
-;;;###autoload                (file-readable-p nkr)
-;;;###autoload                (file-newer-than-file-p nkr okr)
+;;;###autoload         (let ((ts (expand-file-name
+;;;###autoload                    "gnu-elpa.timestamp"
+;;;###autoload                    (or (bound-and-true-p package-gnupghome-dir)
+;;;###autoload                        (expand-file-name "gnupg"
+;;;###autoload                                          package-user-dir))))
+;;;###autoload               (kr gnu-elpa-keyring-update--keyring))
+;;;###autoload           (and (file-writable-p ts)
+;;;###autoload                (file-readable-p kr)
+;;;###autoload                (file-newer-than-file-p kr ts)
 ;;;###autoload                (gnu-elpa-keyring-update)))))
 
 (eval-when-compile
