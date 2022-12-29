@@ -1,11 +1,11 @@
 ;;; gnu-elpa-keyring-update.el --- Update Emacs's GPG keyring for GNU ELPA  -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2019  Free Software Foundation, Inc.
+;; Copyright (C) 2019-2022  Free Software Foundation, Inc.
 
 ;; Author: Stefan Monnier <monnier@iro.umontreal.ca>
 ;; Keywords: maint, tools
 ;; Package-Type: multi
-;; Version: 2019.3
+;; Version: 2022.12
 
 ;; This program is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -32,33 +32,23 @@
 ;; installing packages.
 ;; 
 ;; If your keys are already too old, causing signature verification errors when
-;; installing packages, then in order to install this package you can do the
-;; following:
-;;
-;; - Fetch the new key manually, e.g. with something like:
-;;
-;;       gpg --homedir ~/.emacs.d/elpa/gnupg --receive-keys 066DAFCB81E42C40
-;;
-;; - Modify the expiration date of the old key, e.g. with something like:
-;;
-;;       gpg --homedir ~/.emacs.d/elpa/gnupg \
-;;           --quick-set-expire 474F05837FBDEF9B 1y
-;;
-;; - temporarily disable signature verification (see variable
-;;   `package-check-signature').
+;; installing packages, then in order to install this package you have to
+;; temporarily disable signature verification (see variable
+;;   `package-check-signature') :-(
 
 ;;; Code:
 
 ;;;###autoload
 (defvar gnu-elpa-keyring-update--keyring
-  ;; FIXME: Avoid using a `.gpg' extension, because it triggers a bug in
+  ;; FIXME: We avoid using a `.gpg' extension, because it triggers a bug in
   ;; tar-untar-buffer (which is used internally by `package.el' when installing
   ;; the package).
-  (let ((kr (expand-file-name "etc/gnu-elpa.gpg-keyring"
-                              (file-name-directory load-file-name))))
-    (if (and load-file-name (file-readable-p kr))
-        kr
-      "etc/gnu-elpa.gpg-keyring")))
+  (expand-file-name "etc/gnu-elpa.gpg-keyring"
+                    (file-name-directory
+                     (or (if (fboundp 'macroexp-file-name)
+                             (macroexp-file-name)
+                           load-file-name)
+                         ""))))
 
 (defun gnu-elpa-keyring-update--keyring (&optional noerror)
   (if (and (file-name-absolute-p gnu-elpa-keyring-update--keyring)
@@ -87,6 +77,8 @@
       (write-region "" nil (expand-file-name "gnu-elpa.timestamp" gnupghome-dir)
                     nil 'silent))))
 
+;; FIXME: Maybe we should use an advice on `package--check-signature'
+;; so as to avoid this startup cost?
 ;;;###autoload (eval-after-load 'package
 ;;;###autoload   `(and (bound-and-true-p package-user-dir)
 ;;;###autoload         (file-directory-p package-user-dir)
